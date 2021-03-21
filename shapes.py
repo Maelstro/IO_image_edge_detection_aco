@@ -29,8 +29,10 @@ class Shape():
         "breather": breather
 
         }
-        
-        return switcher.get(self.type, lambda: default)(self)
+        try:
+            return switcher.get(self.type)(self)
+        except:
+            return default(self)
 
 
     def __random_facecolors(self):
@@ -55,6 +57,7 @@ class Shape():
         else:
             plot = ax.plot_surface(self.x, self.y, self.z, linewidth=0.5, color="white", shade=False, edgecolors="black")
         ax.set_zlim(-self.paramA, self.paramA)
+        ax.axis("off")
         plt.show()
 
 
