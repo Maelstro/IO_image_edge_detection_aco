@@ -15,9 +15,9 @@ LAMBDA: int = 10
 TAU: float = 0.1    # Initial pheromone value
 PHI: float = 0.05
 RHO: float = 0.1
-N: int = 2         # Number of iterations
-L: int = 50       # Number of construction steps
-K: int = 5000         # Number of ants
+N: int = 2          # Number of iterations
+L: int = 50         # Number of construction steps
+K: int = 5000       # Number of ants
 q_init: float = 0.8 # Controller of the degree of ant exploration
 thresh: float = 0.6
 
@@ -45,7 +45,7 @@ ph_map = np.full_like(img, fill_value=TAU)
 routes = []
 informations = []
 for i in range(K):
-    routes.append([[random.randint(1, len(img[1, :]) - 1), random.randint(1, len(img[1, :]) - 1)]])
+    routes.append([[random.randint(1, len(img[1, :]) - 1), random.randint(1, len(img[:, 1]) - 1)]])
 
 delta_tau = []
 for i in range(len(img[:,1])):
@@ -156,3 +156,67 @@ out_img = np.array(out_img)
 cv2.imshow("Output", out_img)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
+
+##### Class refactoring #####
+
+class ImageACO(object):
+    def __init__(self, iter_cnt: int, step_cnt: int, ant_cnt, alpha: int, beta: float,
+                 lambda_val: float, tau: float, phi: float, rho: float, image_path: str):
+        self.iter_cnt = iter_cnt
+        self.step_cnt = step_cnt
+        self.ant_cnt = ant_cnt
+        self.alpha = alpha
+        self.beta = beta
+        self.lambda_val = lambda_val
+        self.tau = tau
+        self.phi = phi
+        self.rho = rho
+        self.pheromone_map = None
+        self.delta_tau = None
+        self.heuristic_information = None
+        self.routes = None
+        self.image = cv2.imread(image_path)
+
+    def __enter__(self):
+        print("Initialize the pheromone map...")
+        self.pheromone_map = np.full_like(self.image, fill_value=self.tau)
+        print("Pheromone map has been initialized.")
+
+        print("Initializing the image heuristic...")
+        self.heuristic_information = self.create_neighborhood()
+        print("Heuristic has been initialized.")
+
+        print("Initialize the delta_tau array...")
+        self.delta_tau = np.zeros(self.image)
+        print("Delta_tau array has been initialized.")
+
+    def prob_per_point(self, x: int, y: int) -> float:
+        return pow(x, self.alpha) * pow(y, self.beta)
+
+    def create_neighborhood(self) -> np.array:
+        out_img = np.zeros((self.image.shape[0], self.image.shape[1]), dtype=np.float32)
+        max_int = 0.
+        for i in range(1, self.image.shape[0] - 1):
+            for j in range(1, self.image.shape[1] - 1):
+                out_img[i][j] = abs(self.image[i-1][j-1] - self.image[i+1][j+1]) + abs(self.image[i-1][j] - self.image[i+1][j]) + \
+                                abs(self.image[i-1][j+1] - self.image[i+1][j-1]) + abs(self.image[i][j-1] - self.image[i][j+1])
+                if out_img[i][j] > max_int:
+                    max_int = out_img[i][j]
+        out_img = out_img / max_int
+        return out_img
+
+    def local_update(self, x: int, y: int) -> None:
+        self.pheromone_map[x][y] = (1 - self.phi) * self.pheromone_map[x][y] + self.phi * self.tau
+
+    def global_update(self, x: int, y: int) -> None:
+        self.pheromone_map[x][y] = (1 - self.phi) * self.pheromone_map[x][y] + self.phi * self.delta_tau[x][y]
+
+    def initialize_routes(self):
+        self.routes = []
+        for _ in range(self.ant_cnt):
+            self.routes.append([[random.randint(1, self.image.shape[0] - 1), random.randint(1, self.image.shape[1] - 1)]])
+
+    def __call__(self):
+        # TODO: Finish the method for edge detection
+        # TODO: Calculate probability, add the neighbor with the biggest prob to the route
+        pass
