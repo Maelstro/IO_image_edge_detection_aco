@@ -10,7 +10,7 @@ import random
 from tqdm import tqdm
 
 class ImageACO(object):
-    def __init__(self, iter_cnt: int, step_cnt: int, ant_cnt, alpha: int, beta: float,
+    def __init__(self, iter_cnt: int, step_cnt: int, ant_cnt: int, alpha: int, beta: float,
                  tau: float, phi: float, rho: float, image_path: str):
         self.iter_cnt = iter_cnt
         self.step_cnt = step_cnt
@@ -23,7 +23,7 @@ class ImageACO(object):
         self.image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
 
         print("Initialize the pheromone map...")
-        self.pheromone_map = np.full_like(self.image, fill_value=self.tau)
+        self.pheromone_map = np.full_like(self.image, fill_value=self.tau, dtype=np.float32)
         print("Pheromone map has been initialized.")
 
         print("Initializing the image heuristic...")
@@ -31,7 +31,7 @@ class ImageACO(object):
         print("Heuristic has been initialized.")
 
         print("Initialize the delta_tau array...")
-        self.delta_tau = np.zeros(self.image.shape)
+        self.delta_tau = np.zeros(self.image.shape, dtype=np.float32)
         print("Delta_tau array has been initialized.")
 
         print("Initialize routes...")
@@ -63,7 +63,7 @@ class ImageACO(object):
     def initialize_routes(self) -> list:
         routes = []
         for _ in range(self.ant_cnt):
-            routes.append([[random.randint(1, self.image.shape[0] - 1), random.randint(1, self.image.shape[1] - 1)]])
+            routes.append([(random.randint(1, self.image.shape[0] - 1), random.randint(1, self.image.shape[1] - 1))])
         return routes
 
     def calculate_single_step(self, ant: int, step: int):
@@ -85,14 +85,15 @@ class ImageACO(object):
 
         for x in range(x_min, x_max+1):
             for y in range(y_min, y_max+1):
-                tmp_prob = self.prob_per_point(self.image[x][y], self.heuristic_information[x][y])
-                if tmp_prob >= max_prob:
-                    max_prob = tmp_prob
-                    prob_x = x
-                    prob_y = y
+                if x != i and y != j:
+                    tmp_prob = self.prob_per_point(self.image[x][y], self.heuristic_information[x][y])
+                    if tmp_prob >= max_prob and (x, y) not in self.routes[ant]:
+                        max_prob = tmp_prob
+                        prob_x = x
+                        prob_y = y
 
         # Update the route with the most probable neighbor
-        self.routes[ant].append([prob_x, prob_y])
+        self.routes[ant].append((prob_x, prob_y))
 
         # Locally update the pheromone map
         self.local_update(i, j)
@@ -101,7 +102,11 @@ class ImageACO(object):
         self.delta_tau[i][j] += self.heuristic_information[i][j]
 
     def get_output_image(self):
-        ret, out_image = cv2.threshold(self.pheromone_map, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        inp = self.pheromone_map*255
+        inp = inp.astype(np.uint8)
+        cv2.imwrite("pheromone_map.jpg", inp)
+        ret, out_image = cv2.threshold(inp, 240, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        cv2.imwrite("binarized.jpg", out_image)
         return out_image
 
     def __call__(self):
@@ -109,7 +114,7 @@ class ImageACO(object):
         # TODO: Calculate probability, add the neighbor with the biggest prob to the route
         # Per iteration
         for _ in range(self.iter_cnt):
-            for step in range(self.step_cnt):
+            for step in tqdm(range(self.step_cnt)):
                 for ant in range(self.ant_cnt):
                     self.calculate_single_step(ant, step)
 
