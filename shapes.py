@@ -4,10 +4,12 @@ import colorsys
 import numpy as np
 from numpy import cos, sin, sqrt, pi, cosh, sinh, exp
 
+DPI = 300
 
 class Shape():
-    def __init__(self, resolution:int, type:str, paramA=10, paramB=5):
+    def __init__(self, resolution: int, size: (int, int), type:str, paramA=10, paramB=5):
         self.resolution = resolution                    #resolution of mesh
+        (self.height, self.width) = size                #figure size
         self.type = type                                #type of shape
         self.paramA, self.paramB = paramA, paramB       #parameters used to generate shape
         self.x, self.y, self.z = self.__get_figure()    #points of shape
@@ -48,17 +50,32 @@ class Shape():
         return randFaceColors
 
 
-    def get_image(self, height:int, width:int, with_cmap=False):
+    def get_figure(self, verbose=False, with_cmap=False):
         # Returns Image of the shape
-        fig = plt.figure()
+        fig = plt.figure(dpi=DPI)
         ax = fig.gca(projection = '3d')
+        fig.set_size_inches(self.width/DPI, self.height/DPI)
         if with_cmap:
             plot = ax.plot_surface(self.x, self.y, self.z, shade=False, facecolors=self.__random_facecolors(), linewidth=0)
         else:
             plot = ax.plot_surface(self.x, self.y, self.z, linewidth=0.5, color="white", shade=False, edgecolors="black")
         ax.set_zlim(-self.paramA, self.paramA)
+        ax.set_xlim(np.min(self.x), np.max(self.x))
+        ax.set_ylim(np.min(self.y), np.max(self.y))
         ax.axis("off")
-        plt.show()
+        if verbose:
+            plt.show()
+        return fig
+    
+    def get_image(self, fig):
+        fig.canvas.draw()
+        buf = fig.canvas.tostring_rgb()
+        ncols, nrows = fig.canvas.get_width_height()
+
+        return np.fromstring(buf, dtype=np.uint8).reshape(nrows, ncols, 3)
+    
+    def save_image(self, fig, output_file):
+        fig.savefig(output_file, dpi=DPI)
 
 
 def torus(shape:Shape):
