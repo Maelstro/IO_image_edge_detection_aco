@@ -4,7 +4,9 @@
 import cv2
 import numpy as np
 import random
+from skimage import filters
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 class ImageACO(object):
     def __init__(self, iter_cnt: int, step_cnt: int, ant_cnt: int, alpha: float, beta: float,
@@ -22,6 +24,12 @@ class ImageACO(object):
         self.image = self.image.astype(np.float64)
         self.image = self.image / 255.
         self.all_visited = []
+        self.img_coords = []
+        for i in range(self.image.shape[0]):
+            for j in range(self.image.shape[1]):
+                self.img_coords.append((i, j))
+        self.coord_map = [i for i in range(self.image.shape[0]*self.image.shape[1])]
+
 
         print("Initialize the pheromone map...")
         self.pheromone_map = np.full_like(self.image, fill_value=self.tau, dtype=np.float64)
@@ -73,6 +81,13 @@ class ImageACO(object):
     def update_route(self, ant, point):
             self.routes[ant].append(point)
 
+    @staticmethod
+    def simple_weighted_choice(choices, weights, prng=np.random):
+        running_sum = np.cumsum(weights)
+        u = prng.uniform(0.0, running_sum[-1])
+        i = np.searchsorted(running_sum, u, side='left')
+        return choices[i]
+
     def calculate_single_step(self, ant: int, step: int):
         # Get the pixel coordinates
         i = self.routes[ant][step][0]
@@ -114,7 +129,8 @@ class ImageACO(object):
                 neigh_prob_scaled = [np_val / sum(neigh_prob) for np_val in neigh_prob]
                 m, n = np.random.choice(neighborhood, p=neigh_prob_scaled)
         except:
-            m, n = i, j
+            coords = self.img_coords[ImageACO.simple_weighted_choice(self.coord_map, self.heuristic_information.flatten())]
+            m, n = coords
 
         self.update_route(ant, [m, n])
 
@@ -129,13 +145,34 @@ class ImageACO(object):
         self.delta_tau[m][n] += self.heuristic_information[m][n] / float(step + 1)
 
     def get_output_image(self):
-        out_image = np.zeros((self.pheromone_map.shape), dtype=np.float32)
+        out_image = np.zeros((self.pheromone_map.shape), dtype=np.float64)
         for i in range(self.pheromone_map.shape[0]):
             for j in range(self.pheromone_map.shape[1]):
                 out_image[i, j] = 0.0 if self.pheromone_map[i, j] > self.tau else 1.0
 
         cv2.imwrite("ph_map.png", out_image)
         return out_image
+
+    def get_otsu_image(self):
+        out_image = self.pheromone_map
+        thresh = filters.threshold_otsu(out_image, nbins=256*256)
+        plt.imshow(out_image < thresh, cmap='gray', interpolation='nearest')
+        plt.show()
+
+    def get_thresh_image(self):
+        out_img = np.zeros((self.pheromone_map.shape), dtype=np.uint8)
+        ph_min, ph_max = self.pheromone_map.min(), self.pheromone_map.max()
+        diff = abs(ph_max - ph_min)
+        for pos in self.all_visited:
+            out_img[pos[0], pos[1]] = int(
+                round(abs((self.pheromone_map[pos[0], pos[1]] - ph_min) / diff) * 255))
+
+        # Invert the image
+        _, out_img = cv2.threshold(out_img, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
+        cv2.imshow("New thresh", out_img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        cv2.imwrite("new_thresh.png", out_img)
 
     def __call__(self):
         # Per iteration
@@ -148,10 +185,13 @@ class ImageACO(object):
             for i, j in self.all_visited:
                 self.global_update(i, j)
 
+        # Call Otsu thresholding
+        self.get_otsu_image()
+        self.get_thresh_image()
         return self.get_output_image()
 
 if __name__ == "__main__":
-    aco = ImageACO(10, 40, 512, alpha=1.0, beta=1.0, tau=0.1, phi=0.05, rho=0.1, q0=0.6, image_path='lena_color.tif')
+    aco = ImageACO(10, 40, 512, alpha=1.0, beta=1.0, tau=0.1, phi=0.05, rho=0.1, q0=0., image_path='lena_color.tif')
     out_edge = aco()
     cv2.imshow("Output", out_edge)
     cv2.waitKey(0)
