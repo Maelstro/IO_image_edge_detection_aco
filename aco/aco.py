@@ -1,17 +1,14 @@
 # aco.py - implementation of ant colony optimization algorithm for edge detection
 # Non-class stub - get the working prototype ASAP
-# Source: https://github.com/hannabojadzic/ACO-for-edge-detection/blob/master/ACO-normalization/ACO_normalization.py
-
 
 import cv2
-import matplotlib.image as image
 import numpy as np
 import random
 from tqdm import tqdm
 
 class ImageACO(object):
-    def __init__(self, iter_cnt: int, step_cnt: int, ant_cnt: int, alpha: int, beta: float,
-                 tau: float, phi: float, rho: float, image_path: str):
+    def __init__(self, iter_cnt: int, step_cnt: int, ant_cnt: int, alpha: float, beta: float,
+                 tau: float, phi: float, rho: float, q0: float, image_path: str):
         self.iter_cnt = iter_cnt
         self.step_cnt = step_cnt
         self.ant_cnt = ant_cnt
@@ -20,10 +17,14 @@ class ImageACO(object):
         self.tau = tau
         self.phi = phi
         self.rho = rho
+        self.q0 = q0
         self.image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        self.image = self.image.astype(np.float64)
+        self.image = self.image / 255.
+        self.all_visited = []
 
         print("Initialize the pheromone map...")
-        self.pheromone_map = np.full_like(self.image, fill_value=self.tau, dtype=np.float32)
+        self.pheromone_map = np.full_like(self.image, fill_value=self.tau, dtype=np.float64)
         print("Pheromone map has been initialized.")
 
         print("Initializing the image heuristic...")
@@ -31,7 +32,7 @@ class ImageACO(object):
         print("Heuristic has been initialized.")
 
         print("Initialize the delta_tau array...")
-        self.delta_tau = np.zeros(self.image.shape, dtype=np.float32)
+        self.delta_tau = np.zeros(self.image.shape, dtype=np.float64)
         print("Delta_tau array has been initialized.")
 
         print("Initialize routes...")
@@ -43,28 +44,34 @@ class ImageACO(object):
         return result
 
     def create_neighborhood(self) -> np.array:
-        out_img = np.zeros((self.image.shape[0], self.image.shape[1]), dtype=np.float32)
+        out_img = np.zeros((self.image.shape), dtype=np.float64)
         max_int = 0.
         for i in range(1, self.image.shape[0] - 1):
             for j in range(1, self.image.shape[1] - 1):
-                out_img[i][j] = abs(self.image[i-1][j-1] - self.image[i+1][j+1]) + abs(self.image[i-1][j] - self.image[i+1][j]) + \
-                                abs(self.image[i-1][j+1] - self.image[i+1][j-1]) + abs(self.image[i][j-1] - self.image[i][j+1])
-                if out_img[i][j] > max_int:
-                    max_int = out_img[i][j]
+                out_img[i, j] = abs(self.image[i-1, j-1] - self.image[i+1, j+1]) + abs(self.image[i-1, j] - self.image[i+1, j]) + \
+                                abs(self.image[i-1, j+1] - self.image[i+1, j-1]) + abs(self.image[i, j-1] - self.image[i, j+1])
+                if out_img[i, j] > max_int:
+                    max_int = out_img[i, j]
         out_img = out_img / max_int
+
         return out_img
 
     def local_update(self, x: int, y: int) -> None:
         self.pheromone_map[x][y] = (1 - self.phi) * self.pheromone_map[x][y] + self.phi * self.tau
 
     def global_update(self, x: int, y: int) -> None:
-        self.pheromone_map[x][y] = (1 - self.phi) * self.pheromone_map[x][y] + self.phi * self.delta_tau[x][y]
+        self.pheromone_map[x][y] = (1 - self.rho) * self.pheromone_map[x][y] + self.rho * self.delta_tau[x][y]
 
     def initialize_routes(self) -> list:
         routes = []
         for _ in range(self.ant_cnt):
-            routes.append([(random.randint(1, self.image.shape[0] - 1), random.randint(1, self.image.shape[1] - 1))])
+            point = (random.randint(1, self.image.shape[0] - 1), random.randint(1, self.image.shape[1] - 1))
+            self.all_visited.append(point)
+            routes.append([point])
         return routes
+
+    def update_route(self, ant, point):
+            self.routes[ant].append(point)
 
     def calculate_single_step(self, ant: int, step: int):
         # Get the pixel coordinates
@@ -79,39 +86,58 @@ class ImageACO(object):
         y_max = (self.image.shape[1] - 1) if j >= self.image.shape[1] - 1 else j + 1
 
         # Iterate over neighborhood and get the probabilities
-        max_prob = 0.0
-        prob_x = 0
-        prob_y = 0
+        neighborhood = []
 
         for x in range(x_min, x_max+1):
             for y in range(y_min, y_max+1):
-                if x != i and y != j:
-                    tmp_prob = self.prob_per_point(self.image[x][y], self.heuristic_information[x][y])
-                    if tmp_prob >= max_prob and (x, y) not in self.routes[ant]:
-                        max_prob = tmp_prob
-                        prob_x = x
-                        prob_y = y
+                if x != i or y != j:
+                    is_present = False
+                    for pos in self.routes[ant]:
+                        if pos[0] == x and pos[1] == y:
+                            is_present = True
+                            break
+                    if is_present == False:
+                        neighborhood.append([x, y])
 
-        # Update the route with the most probable neighbor
-        self.routes[ant].append((prob_x, prob_y))
+        # Calculate prob per each neighborhood point
+        neigh_prob = []
+        for k in range(len(neighborhood)):
+            neigh_prob.append(self.prob_per_point(self.pheromone_map[neighborhood[k][0], neighborhood[k][1]],
+                                               self.heuristic_information[neighborhood[k][0], neighborhood[k][1]]))
+
+        # Select a random number
+        q = random.random()
+        try:
+            if q <= self.q0:
+                m, n = neighborhood[np.argmax(neigh_prob)]
+            else:
+                neigh_prob_scaled = [np_val / sum(neigh_prob) for np_val in neigh_prob]
+                m, n = np.random.choice(neighborhood, p=neigh_prob_scaled)
+        except:
+            m, n = i, j
+
+        self.update_route(ant, [m, n])
+
+
+        if [m, n] not in self.all_visited:
+            self.all_visited.append([m, n])
 
         # Locally update the pheromone map
-        self.local_update(i, j)
+        self.local_update(m, n)
 
         # Update the delta_tau
-        self.delta_tau[i][j] += self.heuristic_information[i][j]
+        self.delta_tau[m][n] += self.heuristic_information[m][n] / float(step + 1)
 
     def get_output_image(self):
-        inp = self.pheromone_map*255
-        inp = inp.astype(np.uint8)
-        cv2.imwrite("pheromone_map.jpg", inp)
-        ret, out_image = cv2.threshold(inp, 240, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-        cv2.imwrite("binarized.jpg", out_image)
+        out_image = np.zeros((self.pheromone_map.shape), dtype=np.float32)
+        for i in range(self.pheromone_map.shape[0]):
+            for j in range(self.pheromone_map.shape[1]):
+                out_image[i, j] = 0.0 if self.pheromone_map[i, j] > self.tau else 1.0
+
+        cv2.imwrite("ph_map.png", out_image)
         return out_image
 
     def __call__(self):
-        # TODO: Finish the method for edge detection
-        # TODO: Calculate probability, add the neighbor with the biggest prob to the route
         # Per iteration
         for _ in range(self.iter_cnt):
             for step in tqdm(range(self.step_cnt)):
@@ -119,15 +145,15 @@ class ImageACO(object):
                     self.calculate_single_step(ant, step)
 
             # Global update
-            for i in range(self.image.shape[0]):
-                for j in range(self.image.shape[1]):
-                    self.global_update(i, j)
+            for i, j in self.all_visited:
+                self.global_update(i, j)
 
         return self.get_output_image()
 
 if __name__ == "__main__":
-    aco = ImageACO(2, 50, 5000, alpha=1, beta=2.0, tau=0.1, phi=0.05, rho=0.1, image_path='lenna_test.png')
+    aco = ImageACO(10, 40, 512, alpha=1.0, beta=1.0, tau=0.1, phi=0.05, rho=0.1, q0=0.6, image_path='lena_color.tif')
     out_edge = aco()
-    cv2.imshow("Output", np.asarray(out_edge))
+    cv2.imshow("Output", out_edge)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+    cv2.imwrite("output_image.png", out_edge)
