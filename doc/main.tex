@@ -1,0 +1,157 @@
+\documentclass[polish,polish,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[polish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\usepackage{indentfirst}
+\usepackage{epsfig}
+\usepackage{epstopdf}
+\usepackage{float}
+\usepackage{graphicx}
+\graphicspath{{./graphics/}}
+\usepackage{pslatex}
+\usepackage{anysize}
+\usepackage{lipsum}
+\usepackage{amsmath}
+\numberwithin{equation}{section}
+\usepackage{siunitx}
+\usepackage{chngcntr}
+\counterwithin{figure}{section}
+\usepackage[thinc]{esdiff}
+
+%% Kody programów - definicja środowiska
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
+
+\newenvironment{conditions}
+{\par\vspace{\abovedisplayskip}\noindent\begin{tabular}{>{$}l<{$} c @{ - } l}}
+	{\end{tabular}\par\vspace{\belowdisplayskip}}
+
+% DODAWANIE LISTINGU KODU
+\usepackage{listings}
+\usepackage{color} %red, green, blue, yellow, cyan, magenta, black, white
+\usepackage{xcolor}
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{mymauve}{rgb}{0.58,0,0.82}
+	
+% Definicja stylu MATLABa dla listingu
+\lstdefinestyle{matlab}{
+	language     = Matlab,
+	%basicstyle   = \ttfamily,
+	keywordstyle = \color{keyword}\bfseries,
+	%commentstyle = \color{comment}
+	captionpos=b,
+	extendedchars=true,
+	belowcaptionskip=1\baselineskip,
+	%language=8051ASM,
+	basicstyle=\footnotesize\ttfamily,
+	commentstyle=\itshape\color{mygreen},
+	tabsize=1,
+	breaklines=true,
+	%Tlo listeningu
+	backgroundcolor=\color{white}, 
+	%Styl STRING
+	stringstyle=\color{mymauve},
+	%Konfiguracja prawego marginesu
+	xleftmargin=\parindent,
+	frame=single,
+	numbers=left,
+	numbersep=5pt,
+	numberstyle=\color{mygray},
+	stepnumber=1,
+	%Wyswietlanie bialych znakow
+	showspaces=false,
+	showstringspaces=false,
+}
+
+\marginsize{2.5cm}{2.5cm}{1.5cm}{1.5cm}
+
+\usepackage{caption}
+\DeclareCaptionLabelFormat{bf-parens}{\textbf{#1 #2}}
+\DeclareCaptionLabelSeparator{dash}{ - }
+\captionsetup{labelformat=bf-parens, labelsep=dash}
+\captionsetup[table]{name=Tab.}
+\captionsetup[figure]{name=Rys.}
+\captionsetup[wykres]{name=Wyk.}
+\captionsetup[zdjecie]{name=Zdj.}
+\captionsetup[schemat]{name=Schemat}
+\captionsetup[screenshot]{name=Zrzut ekranu}
+
+% Strona tytułowa
+\title{ \LARGE{Sprawozdanie}\\
+        \LARGE{Inteligencja obliczeniowa}\\
+	    \Large{Detekcja krawędzi z wykorzystaniem ACO}}
+\author{
+    Jędrzej Miklaszewski\\
+    \texttt{macinski@student.agh.edu.pl}\\
+    Adam Wojasiński\\
+    \texttt{wojasins@student.agh.edu.pl}\\
+    Maciej Wójcik\\
+    \texttt{mawojcik@student.agh.edu.pl}\\
+}
+\date{\today}
+
+% Spis treści
+\setcounter{secnumdepth}{4}
+\setcounter{tocdepth}{4}
+\makeatletter
+\renewcommand\tableofcontents{%
+	\null\hfill\textbf{\LARGE\contentsname}\hfill\null\par
+	\@mkboth{\MakeUppercase\contentsname}{\MakeUppercase\contentsname}%
+	\@starttoc{toc}%
+}
+\makeatother
+
+
+% Stopka i nagłówki
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Inteligencja obliczeniowa}
+\rhead{Detekcja krawędzi z wykorzystaniem ACO}
+\rfoot{Strona \thepage}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+\begin{figure}
+    \centering
+    \includegraphics{agh}
+\end{figure}
+\maketitle
+\newpage
+\tableofcontents
+\newpage
+
+%%%%
+
+\end{document}
+
