@@ -90,6 +90,13 @@ class ImageACO(object):
         i = np.searchsorted(running_sum, u, side='left')
         return choices[i]
 
+    @staticmethod
+    def div(x, y):
+        if y == 0:
+            return 0
+        else:
+            return x / y
+
     def calculate_single_step(self, ant: int, step: int):
         # Get the pixel coordinates
         i = self.routes[ant][step][0]
@@ -124,13 +131,18 @@ class ImageACO(object):
 
         # Select a random number
         q = random.random()
-        try:
+        if len(neigh_prob) > 0:
             if q <= self.q0:
                 m, n = neighborhood[np.argmax(neigh_prob)]
             else:
-                neigh_prob_scaled = [np_val / sum(neigh_prob) for np_val in neigh_prob]
-                m, n = np.random.choice(neighborhood, p=neigh_prob_scaled)
-        except:
+                neigh_sum = sum(neigh_prob)
+                if neigh_sum == 0:
+                    neigh_prob_scaled = [1 / len(neighborhood)] * len(neighborhood)
+                else:
+                    neigh_prob_scaled = [ImageACO.div(np_val, sum(neigh_prob)) for np_val in neigh_prob]
+                idx_list = [i for i in range(len(neighborhood))]
+                m, n = neighborhood[np.random.choice(idx_list, p=neigh_prob_scaled)]
+        else:
             coords = self.img_coords[ImageACO.simple_weighted_choice(self.coord_map, self.heuristic_information.flatten())]
             m, n = coords
 
@@ -152,7 +164,7 @@ class ImageACO(object):
             for j in range(self.pheromone_map.shape[1]):
                 out_image[i, j] = 0.0 if self.pheromone_map[i, j] > self.tau else 1.0
 
-        cv2.imwrite("ph_map.png", out_image)
+        cv2.imwrite("ph_map.png", out_image*255)
         return out_image
 
     def get_otsu_image(self):
@@ -190,10 +202,15 @@ class ImageACO(object):
         # Call Otsu thresholding
         self.get_otsu_image()
         self.get_thresh_image()
+
+        # Save the generated images (currently to pickle)
+        with open("algorithm_steps.pickle", "wb") as f:
+            pickle.dump(self.algorithm_steps, f)
+
         return self.get_output_image()
 
 if __name__ == "__main__":
-    aco = ImageACO(10, 40, 512, alpha=1.0, beta=1.0, tau=0.1, phi=0.05, rho=0.1, q0=0., image_path='lena_color.tif')
+    aco = ImageACO(10, 40, 512, alpha=1.0, beta=1.0, tau=0.1, phi=0.05, rho=0.1, q0=0.6, image_path='lena_color.tif')
     out_edge = aco()
     cv2.imshow("Output", out_edge)
     cv2.waitKey(0)
