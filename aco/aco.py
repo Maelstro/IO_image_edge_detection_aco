@@ -6,6 +6,7 @@ import numpy as np
 import random
 from skimage import filters
 from tqdm import tqdm
+import pickle
 import matplotlib.pyplot as plt
 
 class ImageACO(object):
@@ -29,6 +30,7 @@ class ImageACO(object):
             for j in range(self.image.shape[1]):
                 self.img_coords.append((i, j))
         self.coord_map = [i for i in range(self.image.shape[0]*self.image.shape[1])]
+        self.algorithm_steps = []
 
 
         print("Initialize the pheromone map...")
@@ -180,7 +182,7 @@ class ImageACO(object):
             for step in tqdm(range(self.step_cnt)):
                 for ant in range(self.ant_cnt):
                     self.calculate_single_step(ant, step)
-
+                self.algorithm_steps.append(self.pheromone_map)
             # Global update
             for i, j in self.all_visited:
                 self.global_update(i, j)
