@@ -1,5 +1,5 @@
 # aco.py - implementation of ant colony optimization algorithm for edge detection
-# Non-class stub - get the working prototype ASAP
+import sys
 
 import cv2
 import numpy as np
@@ -8,6 +8,7 @@ from skimage import filters
 from tqdm import tqdm
 import pickle
 import matplotlib.pyplot as plt
+import copy
 
 class ImageACO(object):
     def __init__(self, iter_cnt: int, step_cnt: int, ant_cnt: int, alpha: float, beta: float,
@@ -21,6 +22,7 @@ class ImageACO(object):
         self.phi = phi
         self.rho = rho
         self.q0 = q0
+        self.image_path = image_path
         self.image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
         self.image = self.image.astype(np.float64)
         self.image = self.image / 255.
@@ -194,7 +196,7 @@ class ImageACO(object):
             for step in tqdm(range(self.step_cnt)):
                 for ant in range(self.ant_cnt):
                     self.calculate_single_step(ant, step)
-                self.algorithm_steps.append(self.pheromone_map)
+                self.algorithm_steps.append(copy.deepcopy(self.pheromone_map))
             # Global update
             for i, j in self.all_visited:
                 self.global_update(i, j)
@@ -204,13 +206,18 @@ class ImageACO(object):
         self.get_thresh_image()
 
         # Save the generated images (currently to pickle)
-        with open("algorithm_steps.pickle", "wb") as f:
+        with open(f"{self.image_path}algorithm_steps.pickle", "wb") as f:
             pickle.dump(self.algorithm_steps, f)
 
         return self.get_output_image()
 
 if __name__ == "__main__":
-    aco = ImageACO(10, 40, 512, alpha=1.0, beta=1.0, tau=0.1, phi=0.05, rho=0.1, q0=0.6, image_path='lena_color.tif')
+    args = sys.argv
+    if len(args) < 2:
+        print("Not enough arguments! Exiting")
+        sys.exit(1)
+    path_to_file = args[1]
+    aco = ImageACO(10, 40, 512, alpha=1.0, beta=1.0, tau=0.1, phi=0.05, rho=0.1, q0=0.6, image_path=path_to_file)
     out_edge = aco()
     cv2.imshow("Output", out_edge)
     cv2.waitKey(0)
