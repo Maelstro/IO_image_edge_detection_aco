@@ -9,6 +9,7 @@ from tqdm import tqdm
 import pickle
 import matplotlib.pyplot as plt
 import copy
+import os
 
 class ImageACO(object):
     def __init__(self, iter_cnt: int, step_cnt: int, ant_cnt: int, alpha: float, beta: float,
@@ -23,6 +24,7 @@ class ImageACO(object):
         self.rho = rho
         self.q0 = q0
         self.image_path = image_path
+        self.image_name = os.path.splitext(os.path.basename(self.image_path))[0]
         self.image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
         self.image = self.image.astype(np.float64)
         self.image = self.image / 255.
@@ -166,12 +168,14 @@ class ImageACO(object):
             for j in range(self.pheromone_map.shape[1]):
                 out_image[i, j] = 0.0 if self.pheromone_map[i, j] > self.tau else 1.0
 
-        cv2.imwrite("ph_map.png", out_image*255)
+        cv2.imwrite(f"{self.image_name}_ph_map.png", out_image*255)
         return out_image
 
     def get_otsu_image(self):
         out_image = self.pheromone_map
         thresh = filters.threshold_otsu(out_image, nbins=256*256)
+        fig = plt.figure()
+        fig.canvas.set_window_title('Otsu threshold')
         plt.imshow(out_image < thresh, cmap='gray', interpolation='nearest')
         plt.show()
 
@@ -185,10 +189,10 @@ class ImageACO(object):
 
         # Invert the image
         _, out_img = cv2.threshold(out_img, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
-        cv2.imshow("New thresh", out_img)
+        cv2.imshow("Normalized threshold", out_img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
-        cv2.imwrite("new_thresh.png", out_img)
+        cv2.imwrite(f"{self.image_name}_norm_thresh.png", out_img)
 
     def __call__(self):
         # Per iteration
@@ -206,7 +210,7 @@ class ImageACO(object):
         self.get_thresh_image()
 
         # Save the generated images (currently to pickle)
-        with open(f"{self.image_path}algorithm_steps.pickle", "wb") as f:
+        with open(f"{self.image_name}_algorithm_steps.pickle", "wb") as f:
             pickle.dump(self.algorithm_steps, f)
 
         return self.get_output_image()
@@ -219,7 +223,7 @@ if __name__ == "__main__":
     path_to_file = args[1]
     aco = ImageACO(10, 40, 512, alpha=1.0, beta=1.0, tau=0.1, phi=0.05, rho=0.1, q0=0.6, image_path=path_to_file)
     out_edge = aco()
-    cv2.imshow("Output", out_edge)
+    cv2.imshow("Non-adaptive threshold", out_edge)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    cv2.imwrite("output_image.png", out_edge)
+    cv2.imwrite(f"{aco.image_name}_non_adaptive.png", (out_edge*255).astype(np.uint8))
